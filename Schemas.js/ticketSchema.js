@@ -1,0 +1,10 @@
+const {model, Schema} = require("moongoose");
+const ticketSchema = new Schema({
+    GuildID: String,
+    Category: String,
+    Channel: String,
+    Role: String,
+    Logs: String,
+}) 
+
+module.exports = model('tickets', ticketSchema);
