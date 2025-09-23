@@ -96,6 +96,7 @@ const afkSchema = require('./Schemas.js/afkSchema');
 const noPrefixSchema = require('./Schemas.js/noPrefixSchema');
 const joinSchema = require("./Schemas.js/jointocreate");
 const joinchannelSchema = require('./Schemas.js/jointocreatechannel');
+const WelcomeSetup = require("./Schemas.js/welcomeSchema");
 // ── messageCreate Handler (prefix cmds, autoresponder, ping-reply) ─────────────
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot || !message.guild) return;
@@ -1158,3 +1159,50 @@ Logs(client,{
   debug: true
 })
 const {handleLogs} = require("./events/handleLogs");
+const { error } = require('console');
+
+
+//welcome system 
+client.on("guildMemberAdd", async member => {
+  try {
+    const guildId = member.guild.id;
+    const existingSetup = await WelcomeSetup.findOne({ guildId });
+    if (!existingSetup) {
+      return;
+    }
+
+    const channel = member.guild.channels.cache.get(existingSetup.channelId);
+    if (!channel) {
+      console.error("Configured welcome channel not found.");
+      return;
+    }
+
+    const userAvatar = member.user.displayAvatarURL({ format: "png", dynamic: true });
+
+    let messageContent = existingSetup.welcomeMessage
+      .replace(`{server_member}`, member.guild.memberCount)
+      .replace(`{user_mention}`, `<@${member.user.id}>`)
+      .replace(`{user_tag}`, member.user?.username || `Unknown User`)
+      .replace(`{server_name}`, member.guild.name);
+
+    if (existingSetup.useEmbed) {
+      const embed = new EmbedBuilder()
+        .setColor(client.color)
+        .setTimestamp()
+        .setTitle("Welcome")
+        .setDescription(messageContent)
+        .setFooter({ text: `Made with <3 | ${member.guild.name}` })
+        .setThumbnail(userAvatar);
+
+      await channel.send({
+        content: `Welcome ! <@${member.user.id}>`,
+        embeds: [embed]
+      });
+
+    } else {
+      await channel.send(messageContent);
+    }
+  } catch (error) {
+    console.error("Error!\n", error);
+  }
+});
