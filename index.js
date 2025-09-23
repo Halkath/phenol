@@ -96,7 +96,7 @@ const afkSchema = require('./Schemas.js/afkSchema');
 const noPrefixSchema = require('./Schemas.js/noPrefixSchema');
 const joinSchema = require("./Schemas.js/jointocreate");
 const joinchannelSchema = require('./Schemas.js/jointocreatechannel');
-const WelcomeSetup = require("./Schemas.js/welcomeSchema");
+
 // ── messageCreate Handler (prefix cmds, autoresponder, ping-reply) ─────────────
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot || !message.guild) return;
