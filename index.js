@@ -173,7 +173,7 @@ client.on(Events.MessageCreate, async (message) => {
     }
   } catch (err) {
     console.error("AutoResponder Error:", err);
-  }
+  }                                                                                                                                                                        
 });
 
 // ── Reaction Roles ─────────────────────────────────────────────────────────────
@@ -1204,5 +1204,104 @@ client.on("guildMemberAdd", async member => {
     }
   } catch (error) {
     console.error("Error!\n", error);
+  }
+});
+
+//ticket setup button handling 
+const tempEmbeds = new Map(); // store editing state per messageId
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  // BUTTON INTERACTIONS
+  if (interaction.isButton()) {
+    const { customId, message, user } = interaction;
+
+    // Only allow original invoker
+    if (message.interaction && user.id !== message.interaction.user.id) {
+      return interaction.reply({
+        content: "Only the command invoker can edit this embed.",
+        ephemeral: true,
+      });
+    }
+
+    // SAVE & FINISH BUTTON
+    if (customId === "efinish") {
+      const embed = tempEmbeds.get(message.id);
+
+      if (!embed) {
+        // No edits were made, cancel setup
+        const cancelEmbed = new EmbedBuilder()
+          .setColor(client.color)
+          .setTitle("Ticket Panel Setup Cancelled")
+          .setDescription("No inputs were provided. Setup has been cancelled.");
+
+        await interaction.update({
+          embeds: [cancelEmbed],
+          components: [],
+        });
+
+        tempEmbeds.delete(message.id);
+        return;
+      }
+
+      // Finish embed and remove buttons
+      await interaction.update({
+        embeds: [embed],
+        components: [],
+      });
+
+      // Send embed to panel channel
+      const data = await ticketSchema.findOne({ GuildId: interaction.guild.id });
+      if (data && data.Channel) {
+        const panelChannel = interaction.guild.channels.cache.get(data.Channel);
+        if (panelChannel) {
+          await panelChannel.send({ embeds: [embed] });
+        }
+      }
+
+      tempEmbeds.delete(message.id);
+      return;
+    }
+
+    // OPEN MODAL FOR OTHER BUTTONS
+    const modal = new ModalBuilder()
+      .setCustomId(`modal-${customId}-${message.id}`)
+      .setTitle("Edit Embed");
+
+    const input = new TextInputBuilder()
+      .setCustomId("input")
+      .setLabel(`Enter ${customId.replace("e", "")}`)
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true);
+
+    modal.addComponents(new ActionRowBuilder().addComponents(input));
+
+    await interaction.showModal(modal);
+  }
+
+  // MODAL SUBMISSIONS
+  if (interaction.isModalSubmit()) {
+    const [_, field, msgId] = interaction.customId.split("-"); // e.g. modal-etitle-123456
+    const value = interaction.fields.getTextInputValue("input");
+
+    // Retrieve existing embed or create new
+    let embed = tempEmbeds.get(msgId) || new EmbedBuilder().setColor(client.color).setFooter({text: `Made By Sinux Devlopment`});
+
+    // Set fields based on button clicked
+    if (field === "etitle") embed.setTitle(value);
+    if (field === "edescription") embed.setDescription(value);
+    if (field === "eimage") embed.setImage(value);
+
+    tempEmbeds.set(msgId, embed);
+
+    // Disable the button that was used
+    const row = ActionRowBuilder.from(interaction.message.components[0]);
+    row.components.forEach((btn) => {
+      if (btn.data.custom_id === field) btn.setDisabled(true);
+    });
+
+    await interaction.update({
+      embeds: [embed],
+      components: [row],
+    });
   }
 });
